@@ -1,0 +1,5 @@
+ok 1 - allocating garbage collector
+ok 2 - allocating object
+ok 3 - rooting object
+ok 4 - unrooting object
+ok 5 - freeing garbage collector

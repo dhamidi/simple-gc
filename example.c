@@ -23,6 +23,10 @@ String string(GarbageCollector gc, char* data) {
           return NULL;
 
      String str = gc_alloc(gc);
+     if (!str) { /* ran out of objects */
+          gc_add(gc,1); /* let the garbage collector manage one more object */
+          str = gc_alloc(gc);
+     }
      str->len = strlen(data);
      str->data = malloc(str->len + 1); /* + 1 for null byte */
      strcpy(str->data,data); /* also copies the null byte from source */
@@ -46,6 +50,10 @@ String string_concat(GarbageCollector gc, String a, String b) {
      strcat(buf,b->data);
 
      String result = gc_alloc(gc);
+     if (!result) {      /* ran out of objects */
+          gc_add(gc,1);  /* let the garbage collector manage one more object */
+          result = gc_alloc(gc);
+     }
      result->data = buf;
      result->len = buflen;
 

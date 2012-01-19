@@ -22,6 +22,7 @@ This file is part of simple-gc.
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 static void* xmalloc(size_t n) {
      void* result = malloc(n);

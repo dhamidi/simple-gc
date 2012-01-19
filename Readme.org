@@ -1,0 +1,71 @@
+* Description
+Having implemented several simple lisp interpreters I got tired of
+reimplementing the garbage collector every time. This is the first
+attempt at a generic garbage collector that can be reused in different
+software projects. The garbage collector itself is nothing fancy, as it
+employs the mark-and-sweep algorithm and stops the execution of the
+program while collecting garbage. 
+
+The primary goals were:
+- to keep it really simple to implement: a mark-and-sweep garbage
+  collector seemed simple for me to implement, thanks to Peter
+  Michaux's great explanation of the [[http://michaux.ca/articles/scheme-from-scratch-bootstrap-v0_22-garbage-collection][theory]]
+- to keep it simple to use: the garbage collector is non-invasive,
+  i.e. it works with any objects/structs that already exist, without
+  having to modify them in any way
+
+* Usage
+The garbage collector can manage only objects of a fixed size. If it is
+necessary to manage objects of different sizes, several garbage
+collectors can be instantiated. 
+
+The basic series of steps is:
+1) Instantiate a garbage collector
+2) Request objects from the garbage collector
+3) (optional) Increase the amount of objects the garbage collector
+   manages
+4) (optional) Add objects to the root set of the garbage
+   collector. These objects will never be reclaimed by the collector.
+5) (optional) Protect an object found at a specific memory location from
+   being reclaimed.
+6) (optional) Expose memory locations from step 5 to the garbage
+   collector. Objects at that location can be reclaimed then.
+7) Free the garbage collector and destroy all objects the collector
+   manages.
+
+Each step corresponds to one function in the simple-gc API:
+1) =gc_create= instantiates a garbage collector. It takes five arguments:
+   - =nobjects=: the number of objects to manage initially
+   - =size=: the size of single objects in bytes
+   - =on_mark=: a pointer to a unary function. Whenever an object is marked,
+     this function is called with that object as an argument
+   - =on_collect=: a pointer to a unary function. Whenever an object is
+     collected by the garbage collector, this function is called with
+     that object as an argument
+   - =on_destroy=: when the garbage collector is freed with =gc_free=,
+     this function is called for every object managed by the garbage
+     collector with that object as an argument
+2) =gc_alloc= requests a single object from the garbage collector. If
+   there are no more free objects available, the garbage collector tries
+   to collect unused objects. If there are still no objects available
+   after doing so, the function returns =NULL=, otherwise it returns a
+   valid pointer to an object
+3) =gc_add= increases the amount of objects the garbage collector
+   manages by =nobjects=
+4) =gc_root= adds an object to the root set. An object can be removed
+   with a call to =gc_unroot=
+5) =gc_protect= protects objects found at a specific memory
+   location. This function is mostly useful when allocating objects
+   within a function
+6) =gc_expose= exposes the =n= most recently protected memory locations
+   to the garbage collector
+7) =gc_free= destroys a garbage collector and all objects managed by
+   it. The pointer to the garbage collector is set to =NULL= afterwards.
+
+Additionally there are functions that usually don't need to be called
+directly:
+- =gc_collect= tries to reclaim objects that are neither protected nor
+  reachable through the root set. This function is automatically called
+  when there are no more free objects available to the garbage collector
+- =gc_mark= marks an object to be not reclaimable. This function needs
+  to be used when creating objects that reference other objects.

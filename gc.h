@@ -19,6 +19,6 @@ void  gc_unroot  (GarbageCollector gc , void* object);
 void  gc_protect (GarbageCollector gc , void** object);
 void  gc_expose  (GarbageCollector gc , size_t n);
 void  gc_free    (GarbageCollector* gc);
-void  gc_mark    (GarbageCollector gc, void* object);
+void  gc_mark    (gc_event_fn cont, void* object);
 void  gc_collect (GarbageCollector gc);
 #endif

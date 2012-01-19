@@ -70,4 +70,5 @@ directly:
   reachable through the root set. This function is automatically called
   when there are no more free objects available to the garbage collector
 - =gc_mark= marks an object to be not reclaimable. This function needs
-  to be used when creating objects that reference other objects.
+  to be used when creating objects that reference other objects. If
+  =cont= is given, that function is called with the marked object as an argument.

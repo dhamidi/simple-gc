@@ -223,15 +223,13 @@ static inline void unset_mark(void* object) {
      n->mark = 0;
 }
 
-void  gc_mark(GarbageCollector gc, void* object) {
-     assert(gc);
-
+void  gc_mark(gc_event_fn cont, void* object) {
      if (!object || is_marked(object))
           return;
 
      set_mark(object);
-     if (gc->on_mark)
-          gc->on_mark(object);
+     if (cont)
+          cont(object);
 }
 
 static inline void collect(GarbageCollector gc, Node n, Node prev) {
@@ -253,10 +251,10 @@ void gc_collect(GarbageCollector gc) {
 
      Root cur;
      for (cur = gc->used_roots; cur ; cur = cur->next)
-          gc_mark(gc,cur->data);
+          gc_mark(gc->on_mark,cur->data);
 
      for (cur = gc->used_protected; cur; cur = cur->next)
-          gc_mark(gc,*(void**)cur->data);
+          gc_mark(gc->on_mark,*(void**)cur->data);
      
      Node n,next,prev;
      prev = NULL;

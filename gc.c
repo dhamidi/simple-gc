@@ -25,12 +25,12 @@ This file is part of simple-gc.
 
 static void* xmalloc(size_t n) {
      void* result = malloc(n);
-
      if (!result) {
           fputs("gc: out of memory.\n",stderr);
           abort();
      }
 
+     memset(result,0,n);
      return result;
 }
 
@@ -105,7 +105,8 @@ GarbageCollector gc_create(size_t nobjects,
 }
 
 static void destroy_nodes(Node head, gc_event_fn on_destroy) {
-     Node cur,next;
+     Node cur = NULL;
+     Node next = NULL;
      for (cur = head; cur ; cur = next) {
           next = cur->next;
           if (on_destroy)

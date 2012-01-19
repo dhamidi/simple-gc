@@ -34,16 +34,10 @@ The basic series of steps is:
    manages.
 
 Each step corresponds to one function in the simple-gc API:
-1) =gc_create= instantiates a garbage collector.
-   #+CAPTION: Arguments to gc_create
-   | Argument     | Description                                                                                                                                                   |
-   |--------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | =nobjects=   | the number of objects to manage initially                                                                                                                     |
-   | =size=       | the size of single objects in bytes                                                                                                                           |
-   | =on_mark=    | a pointer to a unary function. Whenever an object is marked, function is called with that object as an argument                                               |
-   | =on_collect= | a pointer to a unary function. Whenever an object is collected by the garbage collector, this function is called with that object as an argument              |
-   | =on_destroy= | when the garbage collector is freed with =gc_free=, this function is called for every object managed by the garbage collector with that object as an argument |
-
+1) =gc_create= instantiates a garbage collector that manages =nobjects=
+   of size =size=. Whenever an object is marked, collected or destroyed
+   the function =on_mark=, =on_collect= or =on_destroy= is called with
+   that object as an argument
 2) =gc_alloc= requests a single object from the garbage collector. If
    there are no more free objects available, the garbage collector tries
    to collect unused objects. If there are still no objects available

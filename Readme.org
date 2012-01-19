@@ -14,6 +14,11 @@ The primary goals were:
   i.e. it works with any objects/structs that already exist, without
   having to modify them in any way
 
+** Portability
+The garbage collector has only been tested on an i686
+architecture. Since the garbage collector uses no fancy pointer tricks
+it should work without problems also on other architectures. 
+
 ** Correctness
 Running the provided example program with valgrind (v. 3.7.0) produces
 neither errors nor memory leaks.

@@ -37,21 +37,22 @@ static void* xmalloc(size_t n) {
      void* result = malloc(n);
      if (!result) {
           fputs("gc: out of memory.\n",stderr);
-          abort();
+          abort(); /* all hope is lost */
      }
 
      memset(result,0,n);
      return result;
 }
 
+/* header for each object */
 typedef struct node * Node;
 struct node {
-     Node next;
+     Node next; /* TODO: collapse both fields into one using pointer masking */
      char mark;
 };
 
 static Node node(size_t size, Node next) {
-     Node n = xmalloc(size + sizeof *n);
+     Node n = xmalloc(size + sizeof *n); /* header + object size */
 
      n->next = next;
      n->mark = 0;
@@ -59,6 +60,7 @@ static Node node(size_t size, Node next) {
      return n;
 }
 
+/* list node for rooted/protected objects */
 typedef struct root * Root;
 struct root {
      Root next;
@@ -75,16 +77,16 @@ static Root root(Root next, void* data) {
 }
 
 struct garbage_collector {
-     Node free;
-     Node active;
-     Root used_roots;
-     Root free_roots;
-     Root used_protected;
-     Root free_protected;
-     gc_event_fn on_mark;
-     gc_event_fn on_collect;
-     gc_event_fn on_destroy;
-     size_t size;
+     Node free;              /* list of free objects */
+     Node active;            /* list of used objects */
+     Root used_roots;        /* active root nodes */
+     Root free_roots;        /* free root nodes */
+     Root used_protected;    /* active protected nodes */
+     Root free_protected;    /* free protected nodes */
+     gc_event_fn on_mark;    /* callback when marking an object */
+     gc_event_fn on_collect; /* callback when collecting an object */
+     gc_event_fn on_destroy; /* callback when destroying an object */
+     size_t size;            /* size of a single object */
 };
 
 GarbageCollector gc_create(size_t nobjects,
@@ -94,19 +96,14 @@ GarbageCollector gc_create(size_t nobjects,
                            gc_event_fn on_destroy) {
      GarbageCollector gc = xmalloc(sizeof *gc);
 
-     gc->free = NULL;
-     gc->active = NULL;
-     gc->used_roots = NULL;
-     gc->free_roots = NULL;
-     gc->used_protected = NULL;
-     gc->free_protected = NULL;
-     
+     /* initialise struct */
      gc->on_mark = on_mark;
      gc->on_collect = on_collect;
      gc->on_destroy = on_destroy;
 
      gc->size = size;
 
+     /* create and put objects on free list */
      size_t i;
      for (i = 0; i < nobjects; i++)
           gc->free = node(size,gc->free);
@@ -120,7 +117,7 @@ static void destroy_nodes(Node head, gc_event_fn on_destroy) {
      for (cur = head; cur ; cur = next) {
           next = cur->next;
           if (on_destroy)
-               on_destroy(cur+1);
+               on_destroy(cur+1); /* call handler with address of object, not header */
           free(cur);
      }
 }
@@ -137,6 +134,7 @@ static void destroy_roots(Root head) {
 void  gc_add(GarbageCollector gc, size_t nobjects) {
      assert(gc);
 
+     /* create objects and put them on the free list */
      size_t i;
      for (i = 0; i < nobjects; i++)
           gc->free = node(gc->size,gc->free);
@@ -145,12 +143,12 @@ void  gc_add(GarbageCollector gc, size_t nobjects) {
 void  gc_root(GarbageCollector gc , void* object) {
      assert(gc);
      Root r = NULL;
-     if (gc->free_roots) {
+     if (gc->free_roots) { /* reuse already allocated root node */
           r = gc->free_roots;
           r->next = gc->used_roots;
           gc->free_roots = gc->free_roots->next;
      }
-     else 
+     else /* create a new one */
           r = root(gc->used_roots,object);
 
      gc->used_roots = r;
@@ -159,6 +157,7 @@ void  gc_unroot(GarbageCollector gc , void* object) {
      assert(gc);
 
      Root cur,prev;
+     /* find object in root list */
      for (cur = gc->used_roots, prev = NULL;
           cur; cur = cur->next) {
           if (cur->data == object) {
@@ -167,6 +166,7 @@ void  gc_unroot(GarbageCollector gc , void* object) {
                else
                     gc->used_roots = cur->next;
 
+               /* put it on free root list */
                cur->data = NULL;
                cur->next = gc->free_roots;
                gc->free_roots = cur;
@@ -196,12 +196,12 @@ void  gc_free(GarbageCollector* gc) {
 void  gc_protect(GarbageCollector gc , void** object) {
      assert(gc);
      Root r = NULL;
-     if (gc->free_protected) {
+     if (gc->free_protected) { /* reuse existing node */
           r = gc->free_protected;
           r->next = gc->used_protected;
           gc->free_protected = gc->free_protected->next;
      }
-     else 
+     else /* create a new one */
           r = root(gc->used_protected,(void*)object);
 
      gc->used_protected = r;
@@ -211,6 +211,7 @@ void  gc_expose(GarbageCollector gc , size_t n) {
      assert(gc);
 
      while (n-->0 && gc->used_protected) {
+          /* move nodes from used_protected list to free_protected list */
           Root r = gc->used_protected;
           gc->used_protected = r->next;
           r->next = gc->free_protected;
@@ -241,15 +242,16 @@ void  gc_mark(gc_event_fn cont, void* object) {
           cont(object);
 }
 
+/* collect a single object */
 static inline void collect(GarbageCollector gc, Node n, Node prev) {
      assert(gc);
      assert(n);
      
-     if (gc->on_collect)
-          gc->on_collect(n+1);
+     if (gc->on_collect) /* call handler if necessary */
+          gc->on_collect(n+1); /* with address of object, not header */
      if (prev)
           prev->next = n->next;
-     else
+     else /* update list head if no predecessor given */
           gc->active = n->next;
      n->next = gc->free;
      gc->free = n;
@@ -259,14 +261,18 @@ void gc_collect(GarbageCollector gc) {
      assert(gc);
 
      Root cur;
+     /* mark roots */
      for (cur = gc->used_roots; cur ; cur = cur->next)
           gc_mark(gc->on_mark,cur->data);
 
+     /* mark protected objects */
      for (cur = gc->used_protected; cur; cur = cur->next)
           gc_mark(gc->on_mark,*(void**)cur->data);
      
      Node n,next,prev;
      prev = NULL;
+
+     /* sweep */
      for (n = gc->active; n ; n = next){
           next = n->next;
           if (n->mark) {
@@ -282,16 +288,18 @@ void gc_collect(GarbageCollector gc) {
 void* gc_alloc(GarbageCollector gc) {
      assert(gc);
 
-     if (!gc->free) gc_collect(gc);
-     if (!gc->free) return NULL;
+     if (!gc->free) gc_collect(gc); /* try to reclaim unused objects */
+     if (!gc->free) return NULL; /* no objects available */
 
+     /* pop object from free list */
      Node n = gc->free;
      gc->free = gc->free->next;
 
+     /* push object to active list */
      n->next = gc->active;
      gc->active = n;
 
      n->mark = 0;
 
-     return (n+1);
+     return (n+1); /* address of object without header */
 }

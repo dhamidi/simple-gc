@@ -29,26 +29,7 @@ found [[http://michaux.ca/articles/scheme-from-scratch-bootstrap-v0_22-garbage-c
 This garbage collector allocates all necessary memory for managing that object
 plus the memory required for an object at once. The address returned
 however is only that of the object, excluding the management
-information:
-#+begin_src c
-typedef struct node * Node;
-struct node {
-    Node next; /* list pointer */
-    char mark;
-};
-#+end_src
-
-#+begin_example
-Memory layout of objects managed by a garbage collector:
-+-------------+--------
-|             |           |
-| struct node | object... |
-|             |           |
-+-------------+--------
-              ^
-              |
-     returned by gc_alloc
-#+end_example
+information.
 
 The root set and list of protected memory locations are stored in linked
 lists. Node for that list are malloc'd normally, but put onto a

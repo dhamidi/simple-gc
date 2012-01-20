@@ -22,6 +22,47 @@ it should work without problems also on other architectures.
 ** Correctness
 Running the provided example program with valgrind (v. 3.7.0) produces
 neither errors nor memory leaks.
+* Implementation
+A good explanation of how mark-and-sweep garbage collectors work can be
+found [[http://michaux.ca/articles/scheme-from-scratch-bootstrap-v0_22-garbage-collection][here]].
+
+This garbage collector allocates all necessary memory for managing that object
+plus the memory required for an object at once. The address returned
+however is only that of the object, excluding the management
+information:
+#+begin_src c
+typedef struct node * Node;
+struct node {
+    Node next; /* list pointer */
+    char mark;
+};
+#+end_src
+
+#+begin_example
+Memory layout of objects managed by a garbage collector:
++-------------+--------
+|             |           |
+| struct node | object... |
+|             |           |
++-------------+--------
+              ^
+              |
+     returned by gc_alloc
+#+end_example
+
+The root set and list of protected memory locations are stored in linked
+lists. Node for that list are malloc'd normally, but put onto a
+separated list when not needed anymore. When creating a new node, the
+garbage collector first tries to get a new node from that list and only
+mallocs a new one if that fails.
+
+In order to keep the interface clean and tidy, the size of the managed
+objects is associated with a single garbage collector instance. As a
+consequence it is necessary to create a new garbage collector instance
+for each memory size requested. Since the typical use case consists of
+requesting structures of a fixed size, only a handful of garbage
+collectors is necessary.
+
 * Usage
 The garbage collector can manage only objects of a fixed size. If it is
 necessary to manage objects of different sizes, several garbage
